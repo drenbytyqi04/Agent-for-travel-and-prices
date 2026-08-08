@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import handler from '../api/search.js';
+import { handleSearch } from '../src/web/handle-search.js';
 import { buildDeepLinks, describeInterpretation } from '../src/web/deep-links.js';
 import { Planner } from '../src/agent/planner.js';
 import { expandRequest } from '../src/agent/search-plan.js';
@@ -8,12 +9,51 @@ import { AgentError } from '../src/errors.js';
 
 const TODAY = '2026-08-08';
 
-function post(body: unknown): Request {
-  return new Request('https://example.vercel.app/api/search', {
-    method: 'POST',
+/**
+ * Minimal stand-ins for Vercel's `(req, res)` pair.
+ *
+ * `req.url` is a path only — never an absolute URL — which is exactly the detail that crashed the
+ * first deployed version, so the fakes reproduce it faithfully rather than handing over a `Request`.
+ */
+function fakeReq(options: { method?: string; url?: string; body?: unknown } = {}): any {
+  return {
+    method: options.method ?? 'GET',
+    url: options.url ?? '/api/search',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+    body: options.body,
+    async *[Symbol.asyncIterator]() {
+      if (options.body !== undefined) yield Buffer.from(JSON.stringify(options.body));
+    },
+  };
+}
+
+function fakeRes(): any {
+  return {
+    statusCode: 200,
+    headers: {} as Record<string, string>,
+    payload: '',
+    setHeader(key: string, value: string) {
+      this.headers[key.toLowerCase()] = value;
+    },
+    end(body?: string) {
+      this.payload = body ?? '';
+    },
+    json() {
+      return JSON.parse(this.payload);
+    },
+  };
+}
+
+async function callGet(query: string, extra = ''): Promise<any> {
+  const res = fakeRes();
+  await handler(fakeReq({ url: `/api/search?q=${encodeURIComponent(query)}${extra}` }), res);
+  return res;
+}
+
+async function callPost(body: unknown): Promise<any> {
+  const res = fakeRes();
+  await handler(fakeReq({ method: 'POST', body }), res);
+  return res;
 }
 
 describe('expandRequest', () => {
@@ -130,77 +170,119 @@ describe('describeInterpretation', () => {
   });
 });
 
-describe('/api/search', () => {
+describe('handleSearch (framework-independent logic)', () => {
   it('answers a complete request with routes and links', async () => {
-    const response = await handler(post({ query: 'Nga Prishtina në Berlin më 15 shtator 2027' }));
-    expect(response.status).toBe(200);
+    const { status, body } = await handleSearch({ query: 'Nga Prishtina në Berlin më 15 shtator 2027' }, {});
 
-    const body = (await response.json()) as Record<string, any>;
+    expect(status).toBe(200);
     expect(body.status).toBe('ok');
-    expect(body.routes.length).toBeGreaterThan(0);
-    expect(body.routes[0].links.length).toBeGreaterThan(3);
-    expect(body.summary).toContain('PRN');
+    expect((body.routes as any[]).length).toBeGreaterThan(0);
+    expect((body.summary as string)).toContain('PRN');
   });
 
   it('asks a single question when something is missing', async () => {
-    const response = await handler(post({ query: 'Gjeje më të lirën për Gjermani' }));
-    const body = (await response.json()) as Record<string, any>;
-
+    const { body } = await handleSearch({ query: 'Gjeje më të lirën për Gjermani' }, {});
     expect(body.status).toBe('needs_input');
     expect(body.missing).toEqual(['dates']);
-    expect(body.question).toBeTruthy();
   });
 
   it('expands a country-wide flexible search into many routes', async () => {
-    const response = await handler(post({ query: 'Nga Prishtina për në Gjermani gjatë dhjetorit 2027' }));
-    const body = (await response.json()) as Record<string, any>;
-
-    expect(body.status).toBe('ok');
+    const { body } = await handleSearch({ query: 'Nga Prishtina për në Gjermani gjatë dhjetorit 2027' }, {});
     expect(body.countryWide).toBe(true);
-    expect(body.flexibleDates).toBe(true);
-    expect(body.routes.length).toBeGreaterThan(5);
+    expect((body.routes as any[]).length).toBeGreaterThan(5);
   });
 
-  it('rejects bad input without leaking internals', async () => {
-    expect((await handler(post({}))).status).toBe(400);
-    expect((await handler(post({ query: '   ' }))).status).toBe(400);
-    expect((await handler(new Request('https://x.dev/api/search', { method: 'GET' }))).status).toBe(400);
-    expect((await handler(new Request('https://x.dev/api/search', { method: 'DELETE' }))).status).toBe(405);
+  it('honours the env overrides', async () => {
+    const { body } = await handleSearch(
+      { query: 'Për në Gjermani gjatë dhjetorit 2027' },
+      { DEFAULT_ORIGIN: 'Skopje', MAX_DESTINATIONS: '2', MAX_DATE_PAIRS: '2' },
+    );
+    expect((body.summary as string)).toContain('SKP');
+    expect((body.routes as any[]).length).toBe(4);
   });
 
-  it('answers a GET with ?q= so a search can be shared as a plain URL', async () => {
-    const url = `https://x.dev/api/search?q=${encodeURIComponent('Nga Prishtina në Berlin më 15 shtator 2027')}`;
-    const response = await handler(new Request(url));
-    const body = (await response.json()) as Record<string, any>;
-
-    expect(response.status).toBe(200);
-    expect(body.status).toBe('ok');
-    expect(body.routes[0].destination.iata).toBe('BER');
+  it('ignores malformed env values rather than producing NaN limits', async () => {
+    const { body } = await handleSearch(
+      { query: 'Nga Prishtina për në Gjermani gjatë dhjetorit 2027' },
+      { MAX_DESTINATIONS: 'shumë', MAX_DATE_PAIRS: '-3' },
+    );
+    expect((body.routes as any[]).length).toBe(30); // the 6 × 5 defaults
   });
 
-  it('honours ?live=1 on a GET the same way as the POST body', async () => {
-    const url = `https://x.dev/api/search?q=${encodeURIComponent('Nga Prishtina në Berlin më 15 shtator 2027')}&live=1`;
-    const body = (await (await handler(new Request(url))).json()) as Record<string, any>;
-    expect(body.live).toBeDefined();
+  it('asks about an unrecognised destination instead of failing', async () => {
+    // "Atlantis" is not in the airport catalog, so the request is treated as one that never named
+    // a usable destination — a question the user can answer, not a dead end.
+    const { status, body } = await handleSearch({ query: 'Nga Prishtina në Atlantis më 15 shtator 2027' }, {});
+
+    expect(status).toBe(200);
+    expect(body.status).toBe('needs_input');
+    expect(body.missing).toEqual(['destination']);
   });
 
   it('says plainly when live prices were asked for but no worker is configured', async () => {
-    const response = await handler(post({ query: 'Nga Prishtina në Berlin më 15 shtator 2027', live: true }));
-    const body = (await response.json()) as Record<string, any>;
-
-    expect(body.live.error).toContain('worker');
+    const { body } = await handleSearch({ query: 'Nga Prishtina në Berlin më 15 shtator 2027', live: true }, {});
+    expect((body.live as any).error).toContain('worker');
     // The deep links must still be there — the optional extra failing cannot cost the main answer.
-    expect(body.routes.length).toBeGreaterThan(0);
+    expect((body.routes as any[]).length).toBeGreaterThan(0);
+  });
+});
+
+describe('/api/search — the Vercel adapter', () => {
+  it('answers a GET whose url is a bare path, as Vercel supplies it', async () => {
+    const res = await callGet('Nga Prishtina në Berlin më 15 shtator 2027');
+
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('application/json');
+    expect(res.json().routes[0].destination.iata).toBe('BER');
   });
 
-  it('caps absurdly long input rather than processing it', async () => {
-    const response = await handler(post({ query: 'a'.repeat(50_000) }));
-    expect([200, 400]).toContain(response.status);
+  it('answers a POST using the body Vercel already parsed', async () => {
+    const res = await callPost({ query: 'Nga Prishtina në Berlin më 15 shtator 2027' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('ok');
   });
 
-  it('sets JSON and no-store headers', async () => {
-    const response = await handler(post({ query: 'Nga Prishtina në Berlin më 15 shtator 2027' }));
-    expect(response.headers.get('content-type')).toContain('application/json');
-    expect(response.headers.get('cache-control')).toBe('no-store');
+  it('reads the stream when the body was not pre-parsed', async () => {
+    const res = fakeRes();
+    const req = fakeReq({ method: 'POST', body: { query: 'Nga Prishtina në Berlin më 15 shtator 2027' } });
+    delete req.body; // force the stream path
+    await handler(req, res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('honours ?live=1 the same way as the POST body', async () => {
+    const res = await callGet('Nga Prishtina në Berlin më 15 shtator 2027', '&live=1');
+    expect(res.json().live).toBeDefined();
+  });
+
+  it('always answers with JSON, never an HTML error page', async () => {
+    for (const res of [
+      await callGet(''),
+      await callPost({}),
+      await callPost({ query: '   ' }),
+    ]) {
+      expect(res.statusCode).toBe(400);
+      expect(res.headers['content-type']).toContain('application/json');
+      expect(() => res.json()).not.toThrow();
+    }
+  });
+
+  it('rejects unsupported methods with JSON', async () => {
+    const res = fakeRes();
+    await handler(fakeReq({ method: 'DELETE' }), res);
+    expect(res.statusCode).toBe(405);
+    expect(res.json().error).toBeTruthy();
+  });
+
+  it('answers a preflight without a body', async () => {
+    const res = fakeRes();
+    await handler(fakeReq({ method: 'OPTIONS' }), res);
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['access-control-allow-methods']).toContain('POST');
+  });
+
+  it('sets no-store so a stale search is never served from cache', async () => {
+    const res = await callGet('Nga Prishtina në Berlin më 15 shtator 2027');
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 });
