@@ -18,7 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "RUN_LIVE=1 vitest run tests/live",
-    "postinstall": "node -e \"process.exit(0)\""
+    "browser": "playwright install chromium"
   },
   "dependencies": {
     "playwright": "^1.49.0"

@@ -27,15 +27,33 @@ https://…
 
 ## Fillimi i shpejtë
 
+Kërkohet **Node.js ≥ 20**.
+
 ```bash
+git clone -b claude/flight-search-agent-0u7opa \
+  https://github.com/drenbytyqi04/Agent-for-travel-and-prices.git
+cd Agent-for-travel-and-prices
 npm install
-npm run agent -- --mock "Nga Prishtina në Berlin më 15 shtator"   # demo pa rrjet
-npm run agent                                                      # modaliteti interaktiv
-npm test                                                           # 176 teste, pa rrjet
+
+# 1) Provo menjëherë, pa browser dhe pa rrjet — të dhëna demo:
+npm run agent -- --mock "Nga Prishtina në Berlin më 15 shtator"
+
+# 2) Për kërkime reale duhet një browser (një herë të vetme):
+npm run browser
+
+# 3) Kërkim real:
+npm run agent -- "Më gjej fluturimin më të lirë nga Prishtina për në Gjermani gjatë shtatorit"
+
+# Modaliteti interaktiv:
+npm run agent
 ```
 
-Kërkohet Node.js ≥ 20 dhe Google Chrome ose Chromium. Nëse Playwright nuk e gjen browser-in,
-vendos shtegun me `FLIGHT_AGENT_CHROME_PATH=/rruga/te/chrome`.
+`npm run browser` shkarkon Chromium-in e Playwright-it. Nëse ke tashmë Google Chrome ose Chromium
+të instaluar dhe preferon ta përdorësh atë, kaloje këtë hap — agjenti e gjen vetë; ose trego
+shtegun me `FLIGHT_AGENT_CHROME_PATH=/rruga/te/chrome`.
+
+> Herën e parë me faqe reale, përdor `--headed --log-level debug` që ta shohësh browser-in duke
+> punuar dhe të kuptosh menjëherë nëse një burim bllokohet.
 
 ## Çfarë bën
 
