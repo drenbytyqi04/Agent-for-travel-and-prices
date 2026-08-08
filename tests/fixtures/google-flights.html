@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Flights from PRN to BER — fixture</title>
+  </head>
+  <body>
+    <!--
+      Structural stand-in for a Google Flights results page: the class names, the `ul.Rk10dc >
+      li.pIav2d` nesting, and the "Leaves … at … and arrives …" aria-label are the parts the
+      provider depends on. Used to exercise DOM extraction in a real browser without the network.
+    -->
+    <div id="app">
+      <ul class="Rk10dc">
+        <li class="pIav2d">
+          <div
+            role="button"
+            aria-label="From 89 euros one way. Nonstop flight with Wizz Air. Leaves Pristina International Airport at 6:20 AM on Tuesday, September 15 and arrives at Berlin Brandenburg Airport at 8:40 AM on Tuesday, September 15. Total duration 2 hr 20 min."
+          >
+            <div class="sSHqwe">
+              <span>6:20 AM</span>
+              <span aria-hidden="true">–</span>
+              <span>8:40 AM</span>
+            </div>
+            <div class="Ir0Voe"><div class="sSHqwe">Wizz Air</div></div>
+            <div class="gvkrdb">2 hr 20 min</div>
+            <div class="Ak5kof">PRN–BER</div>
+            <div class="EfT7Ae"><span class="ogfYpf">Nonstop</span></div>
+            <div class="YMlIz FpEdX"><span>€89</span></div>
+            <div class="N872Rd">one way</div>
+          </div>
+        </li>
+
+        <li class="pIav2d">
+          <div
+            role="button"
+            aria-label="From 149 euros one way. 1 stop flight with Austrian Airlines. Leaves Pristina International Airport at 12:05 PM on Tuesday, September 15 and arrives at Berlin Brandenburg Airport at 6:50 PM on Tuesday, September 15. Total duration 6 hr 45 min."
+          >
+            <div class="sSHqwe">
+              <span>12:05 PM</span>
+              <span aria-hidden="true">–</span>
+              <span>6:50 PM</span>
+            </div>
+            <div class="Ir0Voe"><div class="sSHqwe">Austrian Airlines</div></div>
+            <div class="gvkrdb">6 hr 45 min</div>
+            <div class="Ak5kof">PRN–BER</div>
+            <div class="EfT7Ae"><span class="ogfYpf">1 stop</span></div>
+            <div class="YMlIz FpEdX"><span>€149</span></div>
+            <div class="N872Rd">one way</div>
+          </div>
+        </li>
+
+        <li class="pIav2d">
+          <div
+            role="button"
+            aria-label="From 205 euros one way. 2 stop flight with Lufthansa. Leaves Pristina International Airport at 10:30 PM on Tuesday, September 15 and arrives at Berlin Brandenburg Airport at 7:15 AM on Wednesday, September 16. Total duration 8 hr 45 min."
+          >
+            <div class="sSHqwe">
+              <span>10:30 PM</span>
+              <span aria-hidden="true">–</span>
+              <span>7:15 AM+1</span>
+            </div>
+            <div class="Ir0Voe"><div class="sSHqwe">Lufthansa</div></div>
+            <div class="gvkrdb">8 hr 45 min</div>
+            <div class="Ak5kof">PRN–BER</div>
+            <div class="EfT7Ae"><span class="ogfYpf">2 stops</span></div>
+            <div class="YMlIz FpEdX"><span>€205</span></div>
+            <div class="N872Rd">one way</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <script>
+      // Results stream in on the real page, so the fixture appends its last card late to exercise
+      // the "wait until the list stops growing" logic rather than a single synchronous read.
+      setTimeout(() => {
+        const list = document.querySelector('ul.Rk10dc');
+        const li = document.createElement('li');
+        li.className = 'pIav2d';
+        li.innerHTML = `
+          <div role="button" aria-label="From 75 euros one way. Nonstop flight with Chair Airlines. Leaves Pristina International Airport at 3:10 PM and arrives at Berlin Brandenburg Airport at 5:25 PM. Total duration 2 hr 15 min.">
+            <div class="sSHqwe"><span>3:10 PM</span><span aria-hidden="true">–</span><span>5:25 PM</span></div>
+            <div class="Ir0Voe"><div class="sSHqwe">Chair Airlines</div></div>
+            <div class="gvkrdb">2 hr 15 min</div>
+            <div class="Ak5kof">PRN–BER</div>
+            <div class="EfT7Ae"><span class="ogfYpf">Nonstop</span></div>
+            <div class="YMlIz FpEdX"><span>€75</span></div>
+            <div class="N872Rd">one way</div>
+          </div>`;
+        list.appendChild(li);
+      }, 900);
+    </script>
+  </body>
+</html>

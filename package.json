@@ -1,0 +1,35 @@
+{
+  "name": "flight-search-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI flight search agent that drives Google Chrome to find and verify the cheapest real flights",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "flight-agent": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "tsx src/cli.ts",
+    "agent": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "RUN_LIVE=1 vitest run tests/live",
+    "postinstall": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.68.0"
+  }
+}
