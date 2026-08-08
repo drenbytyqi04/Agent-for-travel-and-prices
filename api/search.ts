@@ -19,19 +19,30 @@ const MAX_QUERY_LENGTH = 500;
 
 export default async function handler(request: Request): Promise<Response> {
   if (request.method === 'OPTIONS') return json({}, 204);
-  if (request.method !== 'POST') return json({ error: 'Përdor POST.' }, 405);
 
   let query: string;
   let live = false;
-  try {
-    const body = (await request.json()) as { query?: unknown; live?: unknown };
-    if (typeof body.query !== 'string' || !body.query.trim()) {
-      return json({ error: 'Fusha "query" mungon.' }, 400);
+
+  if (request.method === 'GET') {
+    // `?q=…` makes a search a plain URL, so it can be bookmarked, shared, or curl'd.
+    const params = new URL(request.url).searchParams;
+    const q = params.get('q');
+    if (!q?.trim()) return json({ error: 'Parametri "q" mungon.' }, 400);
+    query = q.trim().slice(0, MAX_QUERY_LENGTH);
+    live = params.get('live') === '1';
+  } else if (request.method === 'POST') {
+    try {
+      const body = (await request.json()) as { query?: unknown; live?: unknown };
+      if (typeof body.query !== 'string' || !body.query.trim()) {
+        return json({ error: 'Fusha "query" mungon.' }, 400);
+      }
+      query = body.query.trim().slice(0, MAX_QUERY_LENGTH);
+      live = body.live === true;
+    } catch {
+      return json({ error: 'Trupi i kërkesës nuk është JSON i vlefshëm.' }, 400);
     }
-    query = body.query.trim().slice(0, MAX_QUERY_LENGTH);
-    live = body.live === true;
-  } catch {
-    return json({ error: 'Trupi i kërkesës nuk është JSON i vlefshëm.' }, 400);
+  } else {
+    return json({ error: 'Përdor GET ose POST.' }, 405);
   }
 
   const planner = new Planner({
@@ -126,7 +137,7 @@ function json(body: unknown, status = 200): Response {
       'content-type': 'application/json; charset=utf-8',
       'access-control-allow-origin': '*',
       'access-control-allow-headers': 'content-type',
-      'access-control-allow-methods': 'POST, OPTIONS',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
       'cache-control': 'no-store',
     },
   });

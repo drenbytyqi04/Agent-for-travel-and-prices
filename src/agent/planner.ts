@@ -470,8 +470,8 @@ function findMonthOrRelativeWindow(
     return { mode: 'flexible_month', range: { start: today, end: endOfMonth(year, month) } };
   }
 
-  // Bare month name: "gjatë shtatorit", "in October".
-  for (const match of normalised.matchAll(/\b([a-z]{3,12})\b/g)) {
+  // Bare month name, optionally with a year: "gjatë shtatorit", "in October", "shtator 2027".
+  for (const match of normalised.matchAll(/\b([a-z]{3,12})\b(?:\s+(\d{4}))?/g)) {
     const word = match[1] ?? '';
     const month = monthFromName(word);
     if (!month) continue;
@@ -480,7 +480,12 @@ function findMonthOrRelativeWindow(
 
     const currentYear = Number(today.slice(0, 4));
     const currentMonth = Number(today.slice(5, 7));
-    const year = month >= currentMonth ? currentYear : currentYear + 1;
+
+    // An explicitly stated year always wins; only guess when the user left it out.
+    const stated = match[2] ? Number(match[2]) : undefined;
+    const year = stated ?? (month >= currentMonth ? currentYear : currentYear + 1);
+    if (year < currentYear || (year === currentYear && month < currentMonth)) continue;
+
     const start = year === currentYear && month === currentMonth ? today : startOfMonth(year, month);
     notes.push(`Muaji u interpretua si ${month}/${year}.`);
     return { mode: 'flexible_month', range: { start, end: endOfMonth(year, month) } };

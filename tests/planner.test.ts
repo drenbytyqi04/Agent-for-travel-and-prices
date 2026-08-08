@@ -172,3 +172,20 @@ describe('Planner — incomplete requests', () => {
     expect(plan.missing).toContain('destination');
   });
 });
+
+describe('Planner — month windows with an explicit year', () => {
+  it('honours a year stated after the month', () => {
+    const plan = planner.plan('Nga Prishtina në Gjermani gjatë shtatorit 2027');
+    expect(plan.request.dateWindow).toEqual({ start: '2027-09-01', end: '2027-09-30' });
+  });
+
+  it('still guesses the next occurrence when no year is given', () => {
+    const plan = planner.plan('Nga Prishtina në Gjermani gjatë marsit');
+    expect(plan.request.dateWindow).toEqual({ start: '2027-03-01', end: '2027-03-31' });
+  });
+
+  it('ignores a month/year pair that has already passed', () => {
+    const plan = planner.plan('Nga Prishtina në Gjermani gjatë shtatorit 2020');
+    expect(plan.request.dateWindow?.start).not.toBe('2020-09-01');
+  });
+});

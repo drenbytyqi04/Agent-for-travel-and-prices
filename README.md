@@ -91,51 +91,62 @@ Në modalitetin interaktiv: `/prefs`, `/clear`, `/help`, `/exit`.
 
 ## Hostimi në Vercel
 
-Repoja përmban një aplikacion web të gatshëm për Vercel (`public/` + `api/`). Deploy-i jep një link
-që funksionon kurdo, nga çdo pajisje:
+Repoja është e gatshme për Vercel (`public/` + `api/`) — pa build step dhe pa varësi npm në
+funksionin serverless, kështu që deploy-i zgjat pak sekonda.
+
+**Mënyra e rekomanduar — lidh repon (deploy automatik në çdo push):**
+
+1. Hap [vercel.com/new](https://vercel.com/new) dhe importo `Agent-for-travel-and-prices`.
+2. Te **Branch**, zgjidh `claude/flight-search-agent-0u7opa` (ose bëj merge në `main` më parë).
+3. Shtyp **Deploy**. Nuk ka nevojë të ndryshosh asnjë cilësim — `vercel.json` i ka të gjitha.
+
+**Ose nga terminali:**
 
 ```bash
 npx vercel --prod
 ```
 
-ose lidh repon te [vercel.com/new](https://vercel.com/new) dhe zgjidh degën.
+Linku që merr funksionon kurdo, nga çdo pajisje. Kërkimet janë të lidhshme:
+`https://linku-yt.vercel.app/?q=Nga%20Prishtina%20n%C3%AB%20Berlin%20m%C3%AB%2015%20shtator`
+Ka edhe API: `GET /api/search?q=…` kthen JSON.
 
 ### Çfarë bën faqja e hostuar — dhe çfarë jo
 
 Vercel-i ekzekuton funksione serverless afatshkurtra, nga IP datacenter-i që faqet e fluturimeve i
 bllokojnë. Prandaj **kërkimi real me browser nuk bëhet dot nga Vercel-i**. Ndarja është kjo:
 
-| | Vercel | Worker (kompjuteri juaj ose një host me kontejnerë) |
+| | Vercel | Worker (kompjuteri yt ose një host me kontejnerë) |
 |---|---|---|
-| Kuptimi i kërkesës në gjuhë natyrale | ✅ | ✅ |
-| Zgjerimi "Gjermani" → 6 aeroporte | ✅ | ✅ |
-| Zgjerimi i datave fleksibile | ✅ | ✅ |
-| Linqe të thella për çdo burim | ✅ | ✅ |
-| Çmime reale të lexuara nga faqet | ❌ | ✅ |
-| Verifikim çmimi duke hapur ofertën | ❌ | ✅ |
+| Kupton kërkesën në gjuhë natyrale | ✅ | ✅ |
+| Zgjeron "Gjermani" → 6 aeroporte | ✅ | ✅ |
+| Zgjeron datat fleksibile | ✅ | ✅ |
+| Linqe të thella për çdo burim e çdo datë | ✅ | ✅ |
+| Lexon çmime reale nga faqet | ❌ | ✅ |
+| Verifikon çmimin duke hapur ofertën | ❌ | ✅ |
 
-Vetëm Vercel-i është plotësisht i përdorshëm: kupton kërkesën dhe ju jep linqet e gatshme për
-Google Flights, Skyscanner, Kayak, Momondo dhe Wizz Air — për çdo aeroport dhe çdo datë kandidate.
+Edhe vetëm me Vercel faqja është plotësisht e përdorshme: kupton kërkesën dhe të jep linqet e
+gatshme për Google Flights, Skyscanner, Kayak, Momondo dhe Wizz Air — për çdo aeroport dhe çdo
+datë kandidate. Klikon njërin dhe je te rezultatet reale.
 
 ### Çmime reale përmes një worker-i
 
 Ekzekuto worker-in aty ku ke një proces të qëndrueshëm dhe një IP normale:
 
 ```bash
-WORKER_TOKEN=një-fjalëkalim-i-gjatë npm run worker     # dëgjon në :8787
-WORKER_MOCK=1 npm run worker                           # provo lidhjen me të dhëna demo
+WORKER_MOCK=1 npm run worker                        # provo lidhjen me të dhëna demo (sekonda)
+WORKER_TOKEN=një-fjalëkalim-i-gjatë npm run worker  # i vërteti, dëgjon në :8787
 ```
 
-Bëje të arritshëm nga interneti (p.sh. `ngrok http 8787`, ose deploy në Railway/Render/Fly.io),
-pastaj vendos në Vercel:
+Bëje të arritshëm nga interneti (`ngrok http 8787`, ose deploy në Railway/Render/Fly.io), pastaj
+shto në Vercel → Settings → Environment Variables:
 
 | Variabli | Vlera |
 |---|---|
 | `WORKER_URL` | `https://adresa-e-worker-it` |
 | `WORKER_TOKEN` | i njëjti fjalëkalim si më sipër |
 
-Pas kësaj, kutia **"Çmime reale"** në faqe fillon të kthejë çmime të verifikuara. Nëse worker-i
-është i fikur, faqja vazhdon të japë linqet normalisht dhe e thotë hapur që çmimet reale nuk u morën.
+Pas kësaj kutia **"Çmime reale"** në faqe kthen çmime të verifikuara. Nëse worker-i është i fikur,
+faqja vazhdon të japë linqet normalisht dhe e thotë hapur që çmimet reale nuk u morën.
 
 ### Variabla mjedisi për Vercel
 
@@ -146,7 +157,6 @@ Pas kësaj, kutia **"Çmime reale"** në faqe fillon të kthejë çmime të veri
 | `MAX_DESTINATIONS` | `6` | Aeroporte për kërkim sipas shtetit. |
 | `MAX_DATE_PAIRS` | `5` | Kombinime datash për kërkim fleksibël. |
 | `WORKER_URL` / `WORKER_TOKEN` | — | Aktivizojnë çmimet reale. |
-
 
 ## Arkitektura
 
@@ -225,7 +235,7 @@ krahasohen gabimisht: ato përjashtohen nga renditja dhe raportohen veçmas.
 ## Testimi
 
 ```bash
-npm test              # 200 teste unit + integrim me browser real (fixture lokal)
+npm test              # 205 teste unit + integrim me browser real (fixture lokal)
 npm run test:live     # RUN_LIVE=1 — godet faqet reale; i ngadaltë, opsional
 npm run typecheck
 ```

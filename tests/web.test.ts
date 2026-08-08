@@ -164,9 +164,24 @@ describe('/api/search', () => {
   it('rejects bad input without leaking internals', async () => {
     expect((await handler(post({}))).status).toBe(400);
     expect((await handler(post({ query: '   ' }))).status).toBe(400);
+    expect((await handler(new Request('https://x.dev/api/search', { method: 'GET' }))).status).toBe(400);
+    expect((await handler(new Request('https://x.dev/api/search', { method: 'DELETE' }))).status).toBe(405);
+  });
 
-    const badMethod = await handler(new Request('https://x.dev/api/search', { method: 'GET' }));
-    expect(badMethod.status).toBe(405);
+  it('answers a GET with ?q= so a search can be shared as a plain URL', async () => {
+    const url = `https://x.dev/api/search?q=${encodeURIComponent('Nga Prishtina në Berlin më 15 shtator 2027')}`;
+    const response = await handler(new Request(url));
+    const body = (await response.json()) as Record<string, any>;
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('ok');
+    expect(body.routes[0].destination.iata).toBe('BER');
+  });
+
+  it('honours ?live=1 on a GET the same way as the POST body', async () => {
+    const url = `https://x.dev/api/search?q=${encodeURIComponent('Nga Prishtina në Berlin më 15 shtator 2027')}&live=1`;
+    const body = (await (await handler(new Request(url))).json()) as Record<string, any>;
+    expect(body.live).toBeDefined();
   });
 
   it('says plainly when live prices were asked for but no worker is configured', async () => {

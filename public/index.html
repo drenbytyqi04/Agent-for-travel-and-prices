@@ -183,6 +183,13 @@
         const query = queryInput.value.trim();
         if (!query) return;
 
+        // Keep the query in the URL so a search can be bookmarked, shared, or reloaded.
+        const url = new URL(location.href);
+        url.searchParams.set('q', query);
+        if ($('live').checked) url.searchParams.set('live', '1');
+        else url.searchParams.delete('live');
+        history.replaceState(null, '', url);
+
         $('submit').disabled = true;
         output.innerHTML = '<p class="status">Po e analizoj kërkesën…</p>';
 
@@ -235,6 +242,14 @@
           </div>`;
         }
         output.innerHTML = html;
+      }
+
+      // Run automatically when the page is opened with ?q=… so shared links work on load.
+      const initial = new URLSearchParams(location.search);
+      if (initial.get('q')) {
+        queryInput.value = initial.get('q');
+        $('live').checked = initial.get('live') === '1';
+        $('form').requestSubmit();
       }
 
       function renderNotes(notes) {

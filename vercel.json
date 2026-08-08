@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "buildCommand": "echo 'no build step — static page plus TypeScript functions'",
+  "installCommand": "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --omit=optional",
   "functions": {
     "api/search.ts": {
       "maxDuration": 60
