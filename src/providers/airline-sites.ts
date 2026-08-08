@@ -3,6 +3,7 @@ import { AgentError } from '../errors.js';
 import type { FlightRequest } from '../models/flight-request.js';
 import { normaliseResult, type FlightResult } from '../models/flight-result.js';
 import { airportRef, resolveAirports } from '../utils/airports.js';
+import { servesRoute, touchesAirport, WIZZ_PRN_ROUTES } from '../utils/airline-routes.js';
 import { buildWizzAirUrl, cleanUrl } from '../utils/url-builder.js';
 import { waitForStableCount } from '../browser/page-interaction.js';
 import {
@@ -40,8 +41,7 @@ export abstract class AirlineSiteProvider extends BaseProvider {
   protected abstract routes(): ReadonlySet<string>;
 
   servesRoute(originIata: string, destinationIata: string): boolean {
-    const routes = this.routes();
-    return routes.has(`${originIata}-${destinationIata}`) || routes.has(`${destinationIata}-${originIata}`);
+    return servesRoute(this.routes(), originIata, destinationIata);
   }
 
   supports(request: FlightRequest): boolean {
@@ -57,11 +57,7 @@ export abstract class AirlineSiteProvider extends BaseProvider {
   }
 
   private hasAnyRouteFrom(iata: string): boolean {
-    for (const route of this.routes()) {
-      const [from, to] = route.split('-');
-      if (from === iata || to === iata) return true;
-    }
-    return false;
+    return touchesAirport(this.routes(), iata);
   }
 }
 
@@ -75,7 +71,6 @@ export class WizzAirProvider extends AirlineSiteProvider {
   readonly airline = 'Wizz Air';
   override readonly priority = 60;
 
-  /** PRN network to German and nearby airports. Kept explicit so a dropped route is a one-line fix. */
   protected routes(): ReadonlySet<string> {
     return WIZZ_PRN_ROUTES;
   }
@@ -123,14 +118,6 @@ export class WizzAirProvider extends AirlineSiteProvider {
     });
   }
 }
-
-/** Route pairs Wizz Air operates from Prishtina (subset relevant to this agent). */
-const WIZZ_PRN_ROUTES: ReadonlySet<string> = new Set([
-  'PRN-DTM', 'PRN-FMM', 'PRN-HAM', 'PRN-BER', 'PRN-FKB', 'PRN-HAJ', 'PRN-NUE',
-  'PRN-BRE', 'PRN-CGN', 'PRN-FRA', 'PRN-STR', 'PRN-DUS', 'PRN-LEJ', 'PRN-FMO',
-  'PRN-BSL', 'PRN-GVA', 'PRN-VIE', 'PRN-BGY', 'PRN-MXP', 'PRN-CRL', 'PRN-EIN',
-  'PRN-LTN', 'PRN-BVA', 'PRN-BUD', 'PRN-CPH', 'PRN-ARN', 'PRN-OSL',
-]);
 
 const FARE_SELECTORS = [
   '[class*="flight-select__flight"]',

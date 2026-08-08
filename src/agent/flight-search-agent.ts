@@ -2,20 +2,16 @@ import { ChromeController } from '../browser/chrome-controller.js';
 import type { BrowserOptions } from '../browser/playwright-manager.js';
 import { AgentError } from '../errors.js';
 import { SessionMemory } from '../memory/session-memory.js';
-import {
-  describeRequest,
-  isRoundTrip,
-  validateFlightRequest,
-  type FlightRequest,
-} from '../models/flight-request.js';
+import { describeRequest, validateFlightRequest, type FlightRequest } from '../models/flight-request.js';
 import type { FlightResult, SearchOutcome } from '../models/flight-result.js';
 import { createDefaultRegistry, type FlightProvider, type ProviderContext, type ProviderRegistry, type SearchTask } from '../providers/index.js';
-import { airportsInCountry, resolveAirport, resolveAirports, type Airport } from '../utils/airports.js';
+import { resolveAirport, type Airport } from '../utils/airports.js';
 import { loadRatesFromEnv, type RateTable } from '../utils/currency.js';
-import { expandDateWindow, type DatePair } from '../utils/dates.js';
+import type { DatePair } from '../utils/dates.js';
 import { createLogger } from '../utils/logger.js';
 import { compareResults, cheapestByCity, cheapestByDates, type Comparison, type CityOption, type DateOption } from './price-comparator.js';
 import { verifyTopCandidates, type VerificationReport } from './price-verifier.js';
+import { expandRequest, type ExpansionOptions } from './search-plan.js';
 
 const log = createLogger('agent');
 
@@ -102,8 +98,9 @@ export class FlightSearchAgent {
     this.progress({ phase: 'planning', message: describeRequest(request) });
 
     const origin = resolveAirport(request.origin);
-    const destinations = this.resolveDestinations(request, notes);
-    const datePairs = this.resolveDatePairs(request, notes);
+    const expansion = expandRequest(request, this.expansionOptions);
+    const { destinations, datePairs } = expansion;
+    notes.push(...expansion.notes);
 
     const tasks = this.buildTasks(request, origin, destinations, datePairs);
     const providers = this.registry.select(request, {
@@ -166,60 +163,11 @@ export class FlightSearchAgent {
     return report;
   }
 
-  /** Expands "Germany" into the airports to actually search (spec §7). */
-  private resolveDestinations(request: FlightRequest, notes: string[]): Airport[] {
-    if (request.destination) {
-      const matches = resolveAirports(request.destination);
-      if (matches.length === 0) throw new AgentError('invalid_airport', `Destinacioni "${request.destination}" nuk u njoh.`, { retryable: false });
-      // A multi-airport city (London, Milan) is worth searching in full — the price gap is large.
-      const sameCity = matches.filter((airport) => airport.city === matches[0]!.city);
-      if (sameCity.length > 1) {
-        notes.push(`${matches[0]!.city} ka ${sameCity.length} aeroporte — po i krahasoj të gjitha.`);
-      }
-      return sameCity.slice(0, this.options.maxDestinations ?? 4);
-    }
-
-    if (request.destinationCountry) {
-      const limit = this.options.maxDestinations ?? 6;
-      const airports = airportsInCountry(request.destinationCountry, limit);
-      if (airports.length === 0) {
-        throw new AgentError('invalid_airport', `Nuk njoh aeroporte për shtetin "${request.destinationCountry}".`, {
-          retryable: false,
-        });
-      }
-      notes.push(`Po krahasoj ${airports.length} aeroporte: ${airports.map((a) => `${a.city} (${a.iata})`).join(', ')}.`);
-      return airports;
-    }
-
-    throw new AgentError('invalid_request', 'Destinacioni mungon.', { retryable: false });
-  }
-
-  /** Expands a flexible window into the date pairs to search (spec §8). */
-  private resolveDatePairs(request: FlightRequest, notes: string[]): DatePair[] {
-    if (request.dateMode === 'exact' && request.departureDate) {
-      return [{ departureDate: request.departureDate, returnDate: request.returnDate }];
-    }
-
-    if (request.dateWindow) {
-      const nights =
-        request.tripLengthNights ?? (isRoundTrip(request) ? defaultNightsFor(request) : 0);
-      const pairs = expandDateWindow({
-        start: request.dateWindow.start,
-        end: request.dateWindow.end,
-        tripLengthNights: nights,
-        maxSamples: this.options.maxDatePairs ?? 5,
-      });
-      notes.push(
-        `Data fleksibile: po provoj ${pairs.length} kombinime midis ${request.dateWindow.start} dhe ${request.dateWindow.end}.`,
-      );
-      return pairs;
-    }
-
-    if (request.departureDate) {
-      return [{ departureDate: request.departureDate, returnDate: request.returnDate }];
-    }
-
-    throw new AgentError('invalid_date', 'Nuk ka datë ose periudhë për të kërkuar.', { retryable: false });
+  private get expansionOptions(): ExpansionOptions {
+    const options: ExpansionOptions = {};
+    if (this.options.maxDestinations !== undefined) options.maxDestinations = this.options.maxDestinations;
+    if (this.options.maxDatePairs !== undefined) options.maxDatePairs = this.options.maxDatePairs;
+    return options;
   }
 
   private buildTasks(
@@ -340,11 +288,6 @@ export class FlightSearchAgent {
   async close(): Promise<void> {
     if (this.ownsChrome) await this.chrome.close();
   }
-}
-
-/** Sensible default trip length when the user implied a round trip without saying how long. */
-function defaultNightsFor(request: FlightRequest): number {
-  return request.tripLengthNights ?? 5;
 }
 
 export type { FlightResult };

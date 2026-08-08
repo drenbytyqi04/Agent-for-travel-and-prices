@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="sq">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flight Search Agent</title>
+    <meta name="description" content="Agjent kërkimi fluturimesh — shkruaj kërkesën me fjalët e tua." />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>%E2%9C%88%EF%B8%8F</text></svg>"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #fbfaf7;
+        --panel: #ffffff;
+        --border: #e4e0d8;
+        --text: #1b1a17;
+        --muted: #6b6659;
+        --accent: #b4552d;
+        --accent-soft: #f6ece6;
+        --radius: 12px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #16151300;
+          --bg: #151412;
+          --panel: #1e1d1a;
+          --border: #33312c;
+          --text: #efece5;
+          --muted: #a09a8c;
+          --accent: #e0784a;
+          --accent-soft: #2a211c;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+      header { margin-bottom: 28px; }
+      h1 { font-size: 1.6rem; margin: 0 0 6px; letter-spacing: -0.02em; }
+      .sub { color: var(--muted); margin: 0; font-size: 0.95rem; }
+
+      form { display: flex; gap: 10px; margin: 24px 0 12px; flex-wrap: wrap; }
+      textarea {
+        flex: 1 1 100%;
+        min-height: 78px;
+        resize: vertical;
+        padding: 14px 16px;
+        font: inherit;
+        color: var(--text);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+      textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+      button {
+        padding: 11px 20px;
+        font: inherit;
+        font-weight: 600;
+        color: #fff;
+        background: var(--accent);
+        border: 0;
+        border-radius: var(--radius);
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.55; cursor: progress; }
+      .live-toggle { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.9rem; }
+
+      .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+      .examples button {
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        font-weight: 400;
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        border-radius: 999px;
+      }
+      .examples button:hover { color: var(--accent); border-color: var(--accent); }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 20px;
+        margin-bottom: 14px;
+      }
+      .route-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .route-title { font-weight: 600; font-size: 1.05rem; }
+      .route-dates { color: var(--muted); font-size: 0.9rem; }
+      .links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .links a {
+        text-decoration: none;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border: 1px solid transparent;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 0.88rem;
+      }
+      .links a:hover { border-color: var(--accent); }
+
+      .notice { border-left: 3px solid var(--accent); padding: 12px 16px; background: var(--accent-soft); border-radius: 6px; margin-bottom: 16px; }
+      .notes { color: var(--muted); font-size: 0.9rem; margin: 0 0 20px; padding-left: 18px; }
+      .notes li { margin-bottom: 4px; }
+      .error { border-left-color: #c0392b; background: color-mix(in srgb, #c0392b 8%, transparent); }
+      .status { color: var(--muted); font-size: 0.92rem; margin: 16px 0; }
+      h2 { font-size: 1.05rem; margin: 28px 0 12px; }
+      footer { margin-top: 48px; color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--border); padding-top: 16px; }
+      footer a { color: var(--accent); }
+      code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>✈️ Flight Search Agent</h1>
+        <p class="sub">Shkruaj kërkesën me fjalët e tua — shqip ose anglisht.</p>
+      </header>
+
+      <form id="form">
+        <textarea
+          id="query"
+          placeholder="p.sh. Më gjej fluturimin më të lirë nga Prishtina për në Gjermani gjatë shtatorit"
+          autofocus
+        ></textarea>
+        <button type="submit" id="submit">Kërko</button>
+        <label class="live-toggle">
+          <input type="checkbox" id="live" />
+          Çmime reale (kërkon worker)
+        </label>
+      </form>
+
+      <div class="examples" id="examples"></div>
+      <div id="output"></div>
+
+      <footer>
+        Kjo faqe kupton kërkesën, zgjeron destinacionet dhe datat, dhe krijon linqe që riprodhojnë
+        saktësisht atë kërkim në secilin burim. Çmimet reale kërkojnë një <em>worker</em> me browser —
+        shih <a href="https://github.com/drenbytyqi04/Agent-for-travel-and-prices" target="_blank" rel="noopener">README</a>.
+        Asnjë çmim nuk shpiket kurrë.
+      </footer>
+    </div>
+
+    <script type="module">
+      const EXAMPLES = [
+        'Më gjej fluturimin më të lirë nga Prishtina për në Gjermani gjatë shtatorit',
+        'Nga Prishtina për në Berlin më 15 shtator dhe kthimin më 20 shtator',
+        'Dua të shkoj në Munich për 4 ditë, gjeje datat më të lira',
+        'Cili është qyteti më i lirë në Gjermani për të fluturuar nga Prishtina?',
+        'Nga Prishtina në Frankfurt muajin tjetër, 2 persona, vetëm direkt',
+      ];
+
+      const $ = (id) => document.getElementById(id);
+      const output = $('output');
+      const queryInput = $('query');
+
+      for (const example of EXAMPLES) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = example.length > 52 ? example.slice(0, 50) + '…' : example;
+        button.title = example;
+        button.addEventListener('click', () => {
+          queryInput.value = example;
+          $('form').requestSubmit();
+        });
+        $('examples').append(button);
+      }
+
+      const escape = (value) =>
+        String(value).replace(/[&<>"']/g, (char) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
+        );
+
+      $('form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const query = queryInput.value.trim();
+        if (!query) return;
+
+        $('submit').disabled = true;
+        output.innerHTML = '<p class="status">Po e analizoj kërkesën…</p>';
+
+        try {
+          const response = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ query, live: $('live').checked }),
+          });
+          render(await response.json());
+        } catch (error) {
+          output.innerHTML = `<div class="notice error">Kërkesa dështoi: ${escape(error.message)}</div>`;
+        } finally {
+          $('submit').disabled = false;
+        }
+      });
+
+      function render(data) {
+        if (data.status === 'needs_input') {
+          output.innerHTML =
+            `<div class="notice"><strong>${escape(data.question)}</strong></div>` + renderNotes(data.notes);
+          return;
+        }
+        if (data.status !== 'ok') {
+          output.innerHTML = `<div class="notice error">${escape(data.error ?? 'Gabim i panjohur.')}</div>`;
+          return;
+        }
+
+        let html = `<div class="notice"><strong>Kështu e kuptova:</strong> ${escape(data.summary)}</div>`;
+        html += renderNotes(data.notes);
+        if (data.live) html += renderLive(data.live);
+
+        html += `<h2>${data.routes.length} kërkime të gatshme</h2>`;
+        for (const route of data.routes) {
+          const dates = route.returnLabel
+            ? `${escape(route.departureLabel)} → ${escape(route.returnLabel)}`
+            : `${escape(route.departureLabel)} · one-way`;
+
+          html += `<div class="card">
+            <div class="route-head">
+              <span class="route-title">${escape(route.origin.city)} (${escape(route.origin.iata)}) → ${escape(route.destination.city)} (${escape(route.destination.iata)})</span>
+              <span class="route-dates">${dates}</span>
+            </div>
+            <div class="links">${route.links
+              .map(
+                (link) =>
+                  `<a href="${escape(link.url)}" target="_blank" rel="noopener noreferrer">${escape(link.name)}</a>`,
+              )
+              .join('')}</div>
+          </div>`;
+        }
+        output.innerHTML = html;
+      }
+
+      function renderNotes(notes) {
+        if (!notes?.length) return '';
+        return `<ul class="notes">${notes.map((note) => `<li>${escape(note)}</li>`).join('')}</ul>`;
+      }
+
+      function renderLive(live) {
+        if (live.error) return `<div class="notice error">Çmimet reale: ${escape(live.error)}</div>`;
+        if (!live.cheapest) return `<div class="notice">Worker-i nuk gjeti asnjë fluturim.</div>`;
+
+        const best = live.cheapest;
+        return `<div class="card">
+          <div class="route-head">
+            <span class="route-title">💰 ${escape(best.currency)} ${escape(live.comparablePrice ?? best.totalPrice)} — ${escape(best.airline)}</span>
+            <span class="route-dates">${escape(best.origin.airport)} → ${escape(best.destination.airport)} · ${escape(best.departureTime)}–${escape(best.arrivalTime)} · ${best.stops === 0 ? 'direkt' : escape(best.stops) + ' ndalesa'}</span>
+          </div>
+          <div class="links"><a href="${escape(best.bookingUrl)}" target="_blank" rel="noopener noreferrer">Hap ofertën</a></div>
+          <p class="status">${live.verified ? '✅ Çmim i verifikuar' : '❓ Çmimi nuk u verifikua dot — trajtoje si orientues.'}</p>
+        </div>`;
+      }
+    </script>
+  </body>
+</html>

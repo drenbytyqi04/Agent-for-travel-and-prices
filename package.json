@@ -12,13 +12,14 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "start": "tsx src/cli.ts",
     "agent": "tsx src/cli.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "RUN_LIVE=1 vitest run tests/live",
-    "browser": "playwright install chromium"
+    "browser": "playwright install chromium",
+    "worker": "tsx src/worker.ts"
   },
   "dependencies": {
     "playwright": "^1.49.0"

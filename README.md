@@ -89,6 +89,65 @@ mëvonshme e përdorin pa pyetur (§10). Asgjë nuk ruhet në disk.
 
 Në modalitetin interaktiv: `/prefs`, `/clear`, `/help`, `/exit`.
 
+## Hostimi në Vercel
+
+Repoja përmban një aplikacion web të gatshëm për Vercel (`public/` + `api/`). Deploy-i jep një link
+që funksionon kurdo, nga çdo pajisje:
+
+```bash
+npx vercel --prod
+```
+
+ose lidh repon te [vercel.com/new](https://vercel.com/new) dhe zgjidh degën.
+
+### Çfarë bën faqja e hostuar — dhe çfarë jo
+
+Vercel-i ekzekuton funksione serverless afatshkurtra, nga IP datacenter-i që faqet e fluturimeve i
+bllokojnë. Prandaj **kërkimi real me browser nuk bëhet dot nga Vercel-i**. Ndarja është kjo:
+
+| | Vercel | Worker (kompjuteri juaj ose një host me kontejnerë) |
+|---|---|---|
+| Kuptimi i kërkesës në gjuhë natyrale | ✅ | ✅ |
+| Zgjerimi "Gjermani" → 6 aeroporte | ✅ | ✅ |
+| Zgjerimi i datave fleksibile | ✅ | ✅ |
+| Linqe të thella për çdo burim | ✅ | ✅ |
+| Çmime reale të lexuara nga faqet | ❌ | ✅ |
+| Verifikim çmimi duke hapur ofertën | ❌ | ✅ |
+
+Vetëm Vercel-i është plotësisht i përdorshëm: kupton kërkesën dhe ju jep linqet e gatshme për
+Google Flights, Skyscanner, Kayak, Momondo dhe Wizz Air — për çdo aeroport dhe çdo datë kandidate.
+
+### Çmime reale përmes një worker-i
+
+Ekzekuto worker-in aty ku ke një proces të qëndrueshëm dhe një IP normale:
+
+```bash
+WORKER_TOKEN=një-fjalëkalim-i-gjatë npm run worker     # dëgjon në :8787
+WORKER_MOCK=1 npm run worker                           # provo lidhjen me të dhëna demo
+```
+
+Bëje të arritshëm nga interneti (p.sh. `ngrok http 8787`, ose deploy në Railway/Render/Fly.io),
+pastaj vendos në Vercel:
+
+| Variabli | Vlera |
+|---|---|
+| `WORKER_URL` | `https://adresa-e-worker-it` |
+| `WORKER_TOKEN` | i njëjti fjalëkalim si më sipër |
+
+Pas kësaj, kutia **"Çmime reale"** në faqe fillon të kthejë çmime të verifikuara. Nëse worker-i
+është i fikur, faqja vazhdon të japë linqet normalisht dhe e thotë hapur që çmimet reale nuk u morën.
+
+### Variabla mjedisi për Vercel
+
+| Variabli | Default | Efekti |
+|---|---|---|
+| `DEFAULT_ORIGIN` | `Prishtina` | Origjina kur përdoruesi s'e përmend. |
+| `DEFAULT_CURRENCY` | `EUR` | Valuta e linqeve. |
+| `MAX_DESTINATIONS` | `6` | Aeroporte për kërkim sipas shtetit. |
+| `MAX_DATE_PAIRS` | `5` | Kombinime datash për kërkim fleksibël. |
+| `WORKER_URL` / `WORKER_TOKEN` | — | Aktivizojnë çmimet reale. |
+
+
 ## Arkitektura
 
 Detajet e plota janë te [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
@@ -166,7 +225,7 @@ krahasohen gabimisht: ato përjashtohen nga renditja dhe raportohen veçmas.
 ## Testimi
 
 ```bash
-npm test              # 176 teste unit + integrim me browser real (fixture lokal)
+npm test              # 200 teste unit + integrim me browser real (fixture lokal)
 npm run test:live     # RUN_LIVE=1 — godet faqet reale; i ngadaltë, opsional
 npm run typecheck
 ```
